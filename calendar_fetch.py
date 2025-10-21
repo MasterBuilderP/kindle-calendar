@@ -1,8 +1,8 @@
 import zoneinfo
 from datetime import datetime, timedelta, timezone
-from dateutil.rrule import rruleset, rrulestr
 
 import gi
+from dateutil.rrule import rruleset, rrulestr
 
 gi.require_version("EDataServer", "1.2")
 gi.require_version("ECal", "2.0")
@@ -27,15 +27,17 @@ def format_timedelta(delta: timedelta) -> str:
     else:
         return f"{mins} min{'s' if mins != 1 else ''}"
 
+
 def format_time(start, end, now):
     if start < now < end:
         return f"> {(end - now).seconds // 60}min"
     return f"{start:%H:%M}"
-    diff = start - now
-    if start.date() == now.date():
-        return f"{start:%H:%M}"
-    else:
-        return f"{start:%d.%m %H:%M}"
+    # diff = start - now
+    # if start.date() == now.date():
+    #     return f"{start:%H:%M}"
+    # else:
+    #     return f"{start:%d.%m %H:%M}"
+
 
 def to_dt(ecal_comp_dt):
     if not ecal_comp_dt:
@@ -63,14 +65,17 @@ def comp_location(ecal_comp):
     # Some versions return a plain str, others a ComponentText; handle both.
     return loc.get_value() if hasattr(loc, "get_value") else (loc or "")
 
+
 def next_occurrences(
     rrule_text: str,
     dtstart: datetime,
     *,
-    exdates: list[str] | None = None,   # strings like "20251027T120000Z" (can pass [] if none)
-    rdates: list[str] | None = None,    # same format
-    after: datetime | None = None,      # default: now()
-    count: int = 3
+    exdates: (
+        list[str] | None
+    ) = None,  # strings like "20251027T120000Z" (can pass [] if none)
+    rdates: list[str] | None = None,  # same format
+    after: datetime | None = None,  # default: now()
+    count: int = 3,
 ):
     if dtstart.tzinfo is None:
         raise ValueError("dtstart must be timezone-aware")
@@ -96,6 +101,7 @@ def next_occurrences(
         out.append(cur)
         cur = rs.after(cur)
     return out
+
 
 def get_events():
     cancellable = Gio.Cancellable()
@@ -137,13 +143,16 @@ def get_events():
         for comp in comps or []:
             e_start = to_dt(comp.get_dtstart())
             e_end = to_dt(comp.get_dtend())
-            assert e_end
             if comp.has_recurrences():
                 for rule in comp.get_rrules():
-                    occ_zip = zip(next_occurrences(rule.to_string(), e_start), next_occurrences(rule.to_string(), e_end))
+                    occ_zip = zip(
+                        next_occurrences(rule.to_string(), e_start),
+                        next_occurrences(rule.to_string(), e_end),
+                    )
                     for occ_start, occ_end in occ_zip:
-                        assert occ_end
-                        if occ_start is None or not (now <= occ_end and occ_start <= end):
+                        if occ_start is None or not (
+                            now <= occ_end and occ_start <= end
+                        ):
                             continue
                         upcoming.append(
                             {
@@ -154,7 +163,7 @@ def get_events():
                                 "end_dt": occ_end,
                             }
                         )
-                        #print(comp_summary(comp), occ)
+                        # print(comp_summary(comp), occ)
 
             if e_start is None or not (now <= e_end and e_start <= end):
                 continue
