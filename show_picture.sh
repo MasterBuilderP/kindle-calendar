@@ -15,7 +15,7 @@ DEST_DIR="/mnt/us/"
 FILENAME="screen.png"
 # ---------------------------
 
-UPDATE_INTERVAL="10s"
+UPDATE_INTERVAL="60s"
 HASH="123"
 TMP_DIR="$(mktemp -d)"
 CTRL_PATH="$TMP_DIR/cm-%r@%h:%p"

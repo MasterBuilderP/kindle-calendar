@@ -1,5 +1,6 @@
 import zoneinfo
 from datetime import datetime, timedelta, timezone
+from dateutil.rrule import rruleset, rrulestr
 
 import gi
 
@@ -26,12 +27,20 @@ def format_timedelta(delta: timedelta) -> str:
     else:
         return f"{mins} min{'s' if mins != 1 else ''}"
 
+def format_time(start, end, now):
+    if start < now < end:
+        return f"> {(end - now).seconds // 60}min"
+    return f"{start:%H:%M}"
+    diff = start - now
+    if start.date() == now.date():
+        return f"{start:%H:%M}"
+    else:
+        return f"{start:%d.%m %H:%M}"
 
-def to_dt(ecal_comp):
-    dt = ecal_comp.get_dtstart()
-    if not dt:
+def to_dt(ecal_comp_dt):
+    if not ecal_comp_dt:
         return None
-    v = dt.get_value()
+    v = ecal_comp_dt.get_value()
     vtz = v.get_timezone()
     # If no TZ info is present, assume its local timezone
     if vtz is None:
@@ -54,6 +63,39 @@ def comp_location(ecal_comp):
     # Some versions return a plain str, others a ComponentText; handle both.
     return loc.get_value() if hasattr(loc, "get_value") else (loc or "")
 
+def next_occurrences(
+    rrule_text: str,
+    dtstart: datetime,
+    *,
+    exdates: list[str] | None = None,   # strings like "20251027T120000Z" (can pass [] if none)
+    rdates: list[str] | None = None,    # same format
+    after: datetime | None = None,      # default: now()
+    count: int = 3
+):
+    if dtstart.tzinfo is None:
+        raise ValueError("dtstart must be timezone-aware")
+
+    rs = rruleset()
+    # Parse RRULE; rrulestr understands WKST, BYDAY, UNTIL, COUNT, etc.
+    rs.rrule(rrulestr(rrule_text, dtstart=dtstart))
+
+    # TODO: Add explicit inclusions/exclusions if provided
+    # for s in (exdates or []):
+    #     # Support comma-separated EXDATE property by splitting
+    #     for part in s.split(","):
+    #         parse_ical_dt(part.strip(), default_tz=dtstart.tzinfo))
+    # for s in (rdates or []):
+    #     for part in s.split(","):
+    #         parse_ical_dt(part.strip(), default_tz=dtstart.tzinfo))
+
+    # Generate next N after a reference time
+    ref = after or datetime.now(dtstart.tzinfo)
+    out = []
+    cur = rs.after(ref, inc=True)
+    while cur and len(out) < count:
+        out.append(cur)
+        cur = rs.after(cur)
+    return out
 
 def get_events():
     cancellable = Gio.Cancellable()
@@ -68,6 +110,7 @@ def get_events():
     end = now + timedelta(days=LOOKAHEAD_DAYS)
 
     events = []
+    ev = {}
     upcoming = []
 
     for src in sources:
@@ -92,23 +135,47 @@ def get_events():
             _, comps = comps
 
         for comp in comps or []:
-            dt = to_dt(comp)
-            if dt is None or not (now <= dt <= end):
+            e_start = to_dt(comp.get_dtstart())
+            e_end = to_dt(comp.get_dtend())
+            assert e_end
+            if comp.has_recurrences():
+                for rule in comp.get_rrules():
+                    occ_zip = zip(next_occurrences(rule.to_string(), e_start), next_occurrences(rule.to_string(), e_end))
+                    for occ_start, occ_end in occ_zip:
+                        assert occ_end
+                        if occ_start is None or not (now <= occ_end and occ_start <= end):
+                            continue
+                        upcoming.append(
+                            {
+                                "calendar": src.get_display_name(),
+                                "summary": comp_summary(comp),
+                                "location": comp_location(comp),
+                                "start_dt": occ_start,
+                                "end_dt": occ_end,
+                            }
+                        )
+                        #print(comp_summary(comp), occ)
+
+            if e_start is None or not (now <= e_end and e_start <= end):
                 continue
             upcoming.append(
                 {
                     "calendar": src.get_display_name(),
                     "summary": comp_summary(comp),
                     "location": comp_location(comp),
-                    "start_dt": dt,
+                    "start_dt": e_start,
+                    "end_dt": e_end,
                 }
             )
-
     for e in sorted(upcoming, key=lambda x: x["start_dt"]):
-        start_local = e["start_dt"].astimezone()
-        diff = start_local - now
-        events.append((format_timedelta(diff), e["summary"]))
-    return events
+        start_local = e["start_dt"]
+        end_local = e["end_dt"]
+        start_date = start_local.date()
+        events.append((format_time(start_local, end_local, now), e["summary"]))
+        if start_date not in ev:
+            ev[start_date] = []
+        ev[start_date].append((format_time(start_local, end_local, now), e["summary"]))
+    return ev
 
 
 if __name__ == "__main__":
