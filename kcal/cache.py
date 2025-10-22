@@ -47,25 +47,13 @@ def cache(new_data=None):
     return data
 
 
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Cache helper")
-    subparsers = parser.add_subparsers(dest="subcommand", required=True)
-
-    parser_ls = subparsers.add_parser("ls", help="List items")
-
-    parser_del = subparsers.add_parser("del", help="Delete an item by ID")
-    parser_del.add_argument("id", type=int, help="ID of the item to delete")
-
-    args = parser.parse_args()
-
+def main(args):
     data = cache()
-    if args.subcommand == "ls":
+    if args.cache_action == "ls":
         for i, k in enumerate(data.keys()):
             item = data[k]
             print(f"{i}: {item['start_dt'].isoformat()} {item['summary']}")
-    elif args.subcommand == "del":
+    elif args.cache_action == "del":
         if 0 <= args.id < len(data.keys()):
             data.pop(list(data.keys())[args.id], None)
             with open(event_cache_path, "w") as f:

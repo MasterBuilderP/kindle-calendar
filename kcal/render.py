@@ -1,9 +1,8 @@
-import argparse
 from datetime import datetime, timedelta
 
 from PIL import Image, ImageDraw, ImageFont
 
-from cache import cache
+from .cache import cache
 
 WIDTH, HEIGHT = 1448, 1072
 BG_COLOR = 255
@@ -53,12 +52,7 @@ def load_data():
     return cal_events
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("filename", help="path to the output file")
-    parser.add_argument("--kindle", action="store_true", help="Use kindle fonts")
-    args = parser.parse_args()
-
+def main(args):
     img = Image.new("L", (WIDTH, HEIGHT), BG_COLOR)
     draw = ImageDraw.Draw(img)
 

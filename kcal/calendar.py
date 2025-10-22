@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 import gi
 from dateutil.rrule import rruleset, rrulestr
 
-from cache import cache
+from .cache import cache
 
 gi.require_version("EDataServer", "1.2")
 gi.require_version("ECal", "2.0")
@@ -126,7 +126,7 @@ def get_events():
     return cache(upcoming)
 
 
-if __name__ == "__main__":
+def main():
     existing = len(cache())
     events = len(get_events())
     if events > existing:
