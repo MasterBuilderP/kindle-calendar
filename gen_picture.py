@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 
 from PIL import Image, ImageDraw, ImageFont
 
+from cache import cache
+
 WIDTH, HEIGHT = 1448, 1072
 BG_COLOR = 255
 PANEL_COLOR = 240
@@ -32,106 +34,123 @@ def draw_date_panel(draw, title_font, time_font):
     draw.text((1050, 100), time_text, fill=TEXT_COLOR, font=time_font)
 
 
-def draw_partial_image():
-    img = Image.new("L", (WIDTH, 255), BG_COLOR)
-    draw = ImageDraw.Draw(img)
+def get_battery_percent():
+    try:
+        with open("/sys/class/power_supply/max77696-battery/capacity") as f:
+            return int(f.read().strip())
+    except Exception as e:
+        print("Error reading battery level:", e)
+        return None
 
-    title_font = ImageFont.truetype(
-        "/usr/java/lib/fonts/AmazonEmberBold-Bold.ttf", TITLE_SIZE
-    )
-    time_font = ImageFont.truetype(
-        "/usr/java/lib/fonts/AmazonEmberBold-Regular.ttf", TIME_SIZE
-    )
 
-    draw_date_panel(draw, title_font, time_font)
-
-    rotated = img.rotate(90, expand=True)
-    rotated.save(args.filename, bits=8)
+def load_data():
+    cal_events = {}
+    for _, e in sorted(cache().items(), key=lambda x: x[1]["start_dt"]):
+        start_date = e["start_dt"].date()
+        if start_date not in cal_events:
+            cal_events[start_date] = []
+        cal_events[start_date].append(e)
+    return cal_events
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("filename", help="path to the output file")
-    parser.add_argument(
-        "--partial", action="store_true", help="Only generate date Panel"
-    )
+    parser.add_argument("--kindle", action="store_true", help="Use kindle fonts")
     args = parser.parse_args()
 
-    if args.partial:
-        draw_partial_image()
+    img = Image.new("L", (WIDTH, HEIGHT), BG_COLOR)
+    draw = ImageDraw.Draw(img)
+
+    if args.kindle:
+        title_font = ImageFont.truetype(
+            "/usr/java/lib/fonts/AmazonEmberBold-Bold.ttf", TITLE_SIZE
+        )
+        time_font = ImageFont.truetype(
+            "/usr/java/lib/fonts/AmazonEmberBold-Regular.ttf", TIME_SIZE
+        )
+        text_font = ImageFont.truetype(
+            "/usr/java/lib/fonts/Amazon-Ember-Regular.ttf", TEXT_SIZE
+        )
+        text_font_bold = ImageFont.truetype(
+            "/usr/java/lib/fonts/AmazonEmberBold-Bold.ttf", TEXT_SIZE
+        )
+
+        battery_font = ImageFont.truetype(
+            "/usr/java/lib/fonts/Amazon-Ember-Regular.ttf", 30
+        )
     else:
-        from calendar_fetch import get_events
-
-        img = Image.new("L", (WIDTH, HEIGHT), BG_COLOR)
-        draw = ImageDraw.Draw(img)
-
         title_font = ImageFont.truetype("DejaVuSans-Bold.ttf", TITLE_SIZE)
         text_font = ImageFont.truetype("DejaVuSans.ttf", TEXT_SIZE)
         text_font_bold = ImageFont.truetype("DejaVuSans-Bold.ttf", TEXT_SIZE)
         time_font = ImageFont.truetype("DejaVuSans.ttf", TIME_SIZE)
 
-        draw_date_panel(draw, title_font, time_font)
+    draw_date_panel(draw, title_font, time_font)
+    if args.kindle:
+        battery = get_battery_percent()
+        draw.text((1300, 70), f"{battery}%", fill=TEXT_COLOR, font=battery_font)
 
-        # === CALENDAR PANEL ===
-        cal_panel = (PANEL_MARGIN, 260, WIDTH - PANEL_MARGIN, HEIGHT - PANEL_MARGIN)
-        draw.rounded_rectangle(
-            cal_panel,
-            radius=30,
-            fill=PANEL_COLOR,
-            outline=PANEL_OUTLINE_COLOR,
-            width=PANEL_WIDTH,
+    # === CALENDAR PANEL ===
+    cal_panel = (PANEL_MARGIN, 260, WIDTH - PANEL_MARGIN, HEIGHT - PANEL_MARGIN)
+    draw.rounded_rectangle(
+        cal_panel,
+        radius=30,
+        fill=PANEL_COLOR,
+        outline=PANEL_OUTLINE_COLOR,
+        width=PANEL_WIDTH,
+    )
+
+    text_end = HEIGHT - (2 * PANEL_MARGIN + PANEL_WIDTH)
+    max_width = WIDTH - 200
+    current_height = 300
+
+    all_lines = 0
+    cal_events = load_data()
+    for date in cal_events:
+        if current_height + TEXT_SIZE * 2 > text_end:
+            break
+        if date == datetime.today().date():
+            cal_date_text = "Today"
+        elif date == datetime.today().date() + timedelta(days=1):
+            cal_date_text = "Tomorrow"
+        else:
+            cal_date_text = f"{date:%d.%m}"
+        draw.text(
+            (100, current_height),
+            cal_date_text,
+            fill=TEXT_COLOR,
+            font=text_font_bold,
         )
-
-        text_end = HEIGHT - (2 * PANEL_MARGIN + PANEL_WIDTH)
-        max_width = WIDTH - 200
-        current_height = 300
-        cal_events = get_events()
-        all_lines = 0
-        for date in cal_events:
-            if current_height + TEXT_SIZE * 2 > text_end:
+        n_lines = 1
+        for event in cal_events[date]:
+            if current_height + TEXT_SIZE + n_lines * TEXT_SIZE > text_end:
                 break
-            if date == datetime.today().date():
-                cal_date_text = "Today"
-            elif date == datetime.today().date() + timedelta(days=1):
-                cal_date_text = "Tomorrow"
-            else:
-                cal_date_text = f"{date:%d.%m}"
-            draw.text(
-                (100, current_height),
-                cal_date_text,
-                fill=TEXT_COLOR,
-                font=text_font_bold,
+            sep = (
+                "▶"
+                if event["start_dt"] < datetime.now().astimezone() < event["end_dt"]
+                else "|"
             )
-            n_lines = 1
-            for event in cal_events[date]:
-                if current_height + TEXT_SIZE + n_lines * TEXT_SIZE > text_end:
-                    break
-                if event["in_progress"]:
-                    sep = "▶"
-                else:
-                    sep = "|"
-                event_text = f"{event["start_dt"]:%H:%M} {sep} {event["summary"]}"
-                while (
-                    event_text
-                    and draw.textlength(event_text, font=text_font) > max_width
-                ):
-                    event_text = event_text[:-1]
-                draw.text(
-                    (145, current_height + n_lines * TEXT_SIZE),
-                    event_text,
-                    fill=TEXT_COLOR,
-                    font=text_font,
-                )
-                n_lines += 1
-            current_height = current_height + n_lines * TEXT_SIZE
-            all_lines += n_lines
+            event_text = f"{event['start_dt']:%H:%M} {sep} {event['summary']}"
+            while (
+                event_text and draw.textlength(event_text, font=text_font) > max_width
+            ):
+                event_text = event_text[:-1]
+            draw.text(
+                (145, current_height + n_lines * TEXT_SIZE),
+                event_text,
+                fill=TEXT_COLOR,
+                font=text_font,
+            )
+            n_lines += 1
+        current_height = current_height + n_lines * TEXT_SIZE
+        all_lines += n_lines
 
-        # 13 lines fit
-        # cal_events = get_events()[:13]
-        # cal_diffs = "\n".join([f"{diff:10}" for diff, text in cal_events])
-        # cal_texts = "\n".join([f"| {text[:35]}" for diff, text in cal_events])
-        # draw.text((100, 330), cal_diffs, fill=TEXT_COLOR, font=text_font)
-        # draw.text((400, 330), cal_texts, fill=TEXT_COLOR, font=text_font)
+    # 13 lines fit
+    # cal_events = get_events()[:13]
+    # cal_diffs = "\n".join([f"{diff:10}" for diff, text in cal_events])
+    # cal_texts = "\n".join([f"| {text[:35]}" for diff, text in cal_events])
+    # draw.text((100, 330), cal_diffs, fill=TEXT_COLOR, font=text_font)
+    # draw.text((400, 330), cal_texts, fill=TEXT_COLOR, font=text_font)
 
-        rotated = img.rotate(90, expand=True)
-        rotated.save(args.filename, bits=8)
+    rotated = img.rotate(90, expand=True)
+    rotated.save(args.filename, bits=8)

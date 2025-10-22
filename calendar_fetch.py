@@ -4,6 +4,8 @@ from datetime import datetime, timedelta, timezone
 import gi
 from dateutil.rrule import rruleset, rrulestr
 
+from cache import cache
+
 gi.require_version("EDataServer", "1.2")
 gi.require_version("ECal", "2.0")
 
@@ -67,8 +69,7 @@ def get_events():
     now = datetime.now().astimezone()
     end = now + timedelta(days=LOOKAHEAD_DAYS)
 
-    events = {}
-    upcoming = []
+    upcoming = {}
 
     for src in sources:
         if hasattr(src, "get_enabled") and not src.get_enabled():
@@ -104,37 +105,29 @@ def get_events():
                             now <= occ_end and occ_start <= end
                         ):
                             continue
-                        upcoming.append(
-                            {
-                                "calendar": src.get_display_name(),
-                                "summary": comp_summary(comp),
-                                "location": comp_location(comp),
-                                "start_dt": occ_start,
-                                "end_dt": occ_end,
-                                "in_progress": occ_start < now < occ_end,
-                            }
-                        )
+                        upcoming[comp.get_uid() + f"{occ_start:%Y-%m-%d}"] = {
+                            "calendar": src.get_display_name(),
+                            "summary": comp_summary(comp),
+                            "location": comp_location(comp),
+                            "start_dt": occ_start,
+                            "end_dt": occ_end,
+                        }
 
             if e_start is None or not (now <= e_end and e_start <= end):
                 continue
-            upcoming.append(
-                {
-                    "calendar": src.get_display_name(),
-                    "summary": comp_summary(comp),
-                    "location": comp_location(comp),
-                    "start_dt": e_start,
-                    "end_dt": e_end,
-                    "in_progress": e_start < now < e_end,
-                }
-            )
-    for e in sorted(upcoming, key=lambda x: x["start_dt"]):
-        start_date = e["start_dt"].date()
-        if start_date not in events:
-            events[start_date] = []
-        events[start_date].append(e)
-    return events
+            upcoming[comp.get_uid()] = {
+                "calendar": src.get_display_name(),
+                "summary": comp_summary(comp),
+                "location": comp_location(comp),
+                "start_dt": e_start,
+                "end_dt": e_end,
+            }
+
+    return cache(upcoming)
 
 
 if __name__ == "__main__":
-    for date, line in get_events().items():
-        print(date, line)
+    existing = len(cache())
+    events = len(get_events())
+    if events > existing:
+        print(f"Found {events - existing} new events")

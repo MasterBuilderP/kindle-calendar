@@ -11,8 +11,8 @@ set -euo pipefail
 USER="root"
 HOST="192.168.15.244"
 PASSWORD=""
-DEST_DIR="/mnt/us/"
-FILENAME="screen.png"
+DEST_DIR="/mnt/us/kindle/"
+FILENAME="event_cache.json"
 # ---------------------------
 
 UPDATE_INTERVAL="60s"
@@ -37,14 +37,12 @@ sshpass -p "$PASSWORD" ssh \
   "$USER@$HOST" > /dev/null
 
 while true; do
-  python gen_picture.py "$TMP_DIR/$FILENAME"
-  NEW_HASH=$(md5sum "$TMP_DIR/$FILENAME" | awk '{print $1}')
+  python calendar_fetch.py
+  NEW_HASH=$(md5sum "$FILENAME" | awk '{print $1}')
   if [[ "$NEW_HASH" != "$HASH" ]]; then
     HASH="$NEW_HASH"
-    sshpass -p "$PASSWORD" scp -o ControlPath="$CTRL_PATH" "$TMP_DIR/$FILENAME" "$USER@$HOST:$DEST_DIR/"
-
-    sshpass -p "$PASSWORD" ssh -o ControlPath="$CTRL_PATH" "$USER@$HOST" \
-    "/usr/sbin/eips -g $DEST_DIR/$FILENAME > /dev/null"
+    echo Copying to kindle...
+    sshpass -p "$PASSWORD" scp -o ControlPath="$CTRL_PATH" "$FILENAME" "$USER@$HOST:$DEST_DIR/"
   fi
 
   sleep "$UPDATE_INTERVAL"
