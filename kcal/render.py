@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -82,7 +82,7 @@ def main(args):
     draw_date_panel(draw, title_font, time_font)
     if args.kindle:
         battery = get_battery_percent()
-        draw.text((1300, 70), f"{battery}%", fill=TEXT_COLOR, font=battery_font)
+        draw.text((1375, 5), f"{battery}%", fill=TEXT_COLOR, font=battery_font)
 
     # === CALENDAR PANEL ===
     cal_panel = (PANEL_MARGIN, 260, WIDTH - PANEL_MARGIN, HEIGHT - PANEL_MARGIN)
@@ -124,7 +124,14 @@ def main(args):
                 if event["start_dt"] < datetime.now().astimezone() < event["end_dt"]
                 else "|"
             )
-            event_text = f"{event['start_dt']:%H:%M} {sep} {event['summary']}"
+            time_text = (
+                ""
+                if event["start_dt"].time() == time(0, 0)
+                else f"{event['start_dt']:%H:%M}"
+            )
+            event_text = (
+                f"{time_text}{' ' if time_text else ''}{sep} {event['summary']}"
+            )
             while (
                 event_text and draw.textlength(event_text, font=text_font) > max_width
             ):
