@@ -126,7 +126,7 @@ if __name__ == "__main__":
             if current_height + TEXT_SIZE + n_lines * TEXT_SIZE > text_end:
                 break
             sep = (
-                "▶"
+                ">"
                 if event["start_dt"] < datetime.now().astimezone() < event["end_dt"]
                 else "|"
             )
@@ -144,13 +144,6 @@ if __name__ == "__main__":
             n_lines += 1
         current_height = current_height + n_lines * TEXT_SIZE
         all_lines += n_lines
-
-    # 13 lines fit
-    # cal_events = get_events()[:13]
-    # cal_diffs = "\n".join([f"{diff:10}" for diff, text in cal_events])
-    # cal_texts = "\n".join([f"| {text[:35]}" for diff, text in cal_events])
-    # draw.text((100, 330), cal_diffs, fill=TEXT_COLOR, font=text_font)
-    # draw.text((400, 330), cal_texts, fill=TEXT_COLOR, font=text_font)
 
     rotated = img.rotate(90, expand=True)
     rotated.save(args.filename, bits=8)
