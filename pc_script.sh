@@ -17,6 +17,7 @@ REMOTE_SCRIPT="show_time.sh"
 # ---------------------------
 
 UPDATE_INTERVAL="10m"
+HASH=""
 TMP_DIR="$(mktemp -d)"
 CTRL_PATH="$TMP_DIR/cm-%r@%h:%p"
 
