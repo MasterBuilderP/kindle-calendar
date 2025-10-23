@@ -1,4 +1,5 @@
 import json
+import uuid
 from datetime import datetime
 
 event_cache_path = "event_cache.json"
@@ -7,9 +8,12 @@ event_cache_path = "event_cache.json"
 def encode(data):
     return {
         k: {
-            **v,
-            "start_dt": v["start_dt"].isoformat(),
-            "end_dt": v["end_dt"].isoformat(),
+            kk: {
+                **vv,
+                "start_dt": vv["start_dt"].isoformat(),
+                "end_dt": vv["end_dt"].isoformat(),
+            }
+            for kk, vv in v.items()
         }
         for k, v in data.items()
     }
@@ -17,18 +21,28 @@ def encode(data):
 
 def clean(data):
     now = datetime.now().astimezone()
-    return {k: v for k, v in data.items() if v["end_dt"] > now}
+    return {
+        k: {kk: vv for kk, vv in v.items() if vv["end_dt"] > now}
+        for k, v in data.items()
+    }
 
 
 def decode(data):
     return {
         k: {
-            **v,
-            "start_dt": datetime.fromisoformat(v["start_dt"]),
-            "end_dt": datetime.fromisoformat(v["end_dt"]),
+            kk: {
+                **vv,
+                "start_dt": datetime.fromisoformat(vv["start_dt"]),
+                "end_dt": datetime.fromisoformat(vv["end_dt"]),
+            }
+            for kk, vv in v.items()
         }
         for k, v in data.items()
     }
+
+
+def merge(data):
+    return {k: vv for _, v in data.items() for k, vv in v.items()}
 
 
 def cache(new_data=None):
@@ -39,12 +53,13 @@ def cache(new_data=None):
         data = {}
 
     if new_data:
-        data.update(new_data)
+        data[str(uuid.getnode())] = new_data
+        print(data)
 
         with open(event_cache_path, "w") as f:
             json.dump(encode(data), f)
 
-    return data
+    return merge(data)
 
 
 def main(args):
