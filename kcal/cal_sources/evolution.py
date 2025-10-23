@@ -11,7 +11,7 @@ gi.require_version("ECal", "2.0")
 
 from gi.repository import ECal, EDataServer, Gio  # noqa: E402
 
-LOOKAHEAD_DAYS = 5
+LOOKAHEAD_DAYS = 10
 
 TZ_ALIASES = {
     "America/Buenos_Aires": "America/Argentina/Buenos_Aires",
