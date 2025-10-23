@@ -13,7 +13,7 @@ HOST="192.168.15.244"
 PASSWORD=""
 DEST_DIR="/mnt/us/kcal/"
 FILENAME="event_cache.json"
-REMOTE_SCRIPT="show_time.sh"
+REMOTE_SCRIPT="kindle_script.sh"
 # ---------------------------
 
 UPDATE_INTERVAL="10m"
