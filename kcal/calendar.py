@@ -13,20 +13,32 @@ from gi.repository import ECal, EDataServer, Gio  # noqa: E402
 
 LOOKAHEAD_DAYS = 5
 
+TZ_ALIASES = {
+    "America/Buenos_Aires": "America/Argentina/Buenos_Aires",
+    "Asia/Calcutta": "Asia/Kolkata",
+    "Europe/Kiev": "Europe/Kyiv",
+    "US/Eastern": "America/New_York",
+    "/freeassociation.sourceforge.net/Europe/Berlin": "Europe/Berlin",
+}
+
 
 def to_dt(ecal_comp_dt):
     if not ecal_comp_dt:
         return None
     v = ecal_comp_dt.get_value()
-    vtz = v.get_timezone()
+    vtz = ecal_comp_dt.get_tzid()
+    if vtz:
+        vtz = TZ_ALIASES.get(vtz, vtz)
+        try:
+            vtz = zoneinfo.ZoneInfo(vtz)
+        except ValueError:
+            vtz = None
+    utc_dt = datetime.fromtimestamp(v.as_timet(), timezone.utc)
     # If no TZ info is present, assume its local timezone
     if vtz is None:
-        utc_dt = datetime.fromtimestamp(v.as_timet(), timezone.utc)
         tz_dt = utc_dt.replace(tzinfo=datetime.now().astimezone().tzinfo).astimezone()
     else:
-        tz_dt = datetime.fromtimestamp(
-            v.as_timet_with_zone(), zoneinfo.ZoneInfo(vtz.get_tzid())
-        )
+        tz_dt = utc_dt.replace(tzinfo=vtz).astimezone()
     return tz_dt
 
 
