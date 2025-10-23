@@ -8,12 +8,12 @@ event_cache_path = "event_cache.json"
 def encode(data):
     return {
         k: {
-            kk: {
+            vk: {
                 **vv,
                 "start_dt": vv["start_dt"].isoformat(),
                 "end_dt": vv["end_dt"].isoformat(),
             }
-            for kk, vv in v.items()
+            for vk, vv in v.items()
         }
         for k, v in data.items()
     }
@@ -22,7 +22,7 @@ def encode(data):
 def clean(data):
     now = datetime.now().astimezone()
     return {
-        k: {kk: vv for kk, vv in v.items() if vv["end_dt"] > now}
+        k: {vk: vv for vk, vv in v.items() if vv["end_dt"] > now}
         for k, v in data.items()
     }
 
@@ -30,19 +30,20 @@ def clean(data):
 def decode(data):
     return {
         k: {
-            kk: {
+            vk: {
                 **vv,
                 "start_dt": datetime.fromisoformat(vv["start_dt"]),
                 "end_dt": datetime.fromisoformat(vv["end_dt"]),
             }
-            for kk, vv in v.items()
+            for vk, vv in v.items()
         }
         for k, v in data.items()
     }
 
 
 def merge(data):
-    return {k: vv for _, v in data.items() for k, vv in v.items()}
+    # If identical events from two devices exist, the last one added will be used
+    return {vk: vv for _, v in data.items() for vk, vv in v.items()}
 
 
 def cache(new_data=None):
@@ -54,7 +55,6 @@ def cache(new_data=None):
 
     if new_data:
         data[str(uuid.getnode())] = new_data
-        print(data)
 
         with open(event_cache_path, "w") as f:
             json.dump(encode(data), f)

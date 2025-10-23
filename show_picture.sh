@@ -16,8 +16,7 @@ FILENAME="event_cache.json"
 REMOTE_SCRIPT="show_time.sh"
 # ---------------------------
 
-UPDATE_INTERVAL="60s"
-HASH="123"
+UPDATE_INTERVAL="10m"
 TMP_DIR="$(mktemp -d)"
 CTRL_PATH="$TMP_DIR/cm-%r@%h:%p"
 
@@ -38,7 +37,7 @@ sshpass -p "$PASSWORD" ssh \
   "$USER@$HOST" > /dev/null
 
 scp -o ControlPath="$CTRL_PATH" "$REMOTE_SCRIPT" "$USER@$HOST:$DEST_DIR/"
-rsync -rv -e "ssh -o ControlPath=\"$CTRL_PATH\"" ./kcal "$USER@$HOST:/mnt/us/kcal/"
+rsync -rv -e "ssh -S $CTRL_PATH -o ControlMaster=no -o StrictHostKeyChecking=no" ./kcal "$USER@$HOST:/mnt/us/kcal/"
 # shellcheck disable=SC2087
 ssh -o StrictHostKeyChecking=no -o ControlPath="$CTRL_PATH" "$USER@$HOST" 'bash -s' <<EOF
 if pgrep -f "$REMOTE_SCRIPT" > /dev/null; then
