@@ -6,6 +6,11 @@ Uses Gnome/Evolution calendar integration to fetch events from all added calenda
 
 Quickstart: Run `./pc_script.sh` on the PC connected to the kindle.
 
+### Install evolution lib dependencies
+```bash
+sudo apt install -y python3-gi gir1.2-edataserver-1.2 gir1.2-ecal-2.0
+```
+
 ### Set up USB network
 ```bash
 sudo ip addr add 192.168.15.201/24 dev usb0

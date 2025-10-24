@@ -1,1 +1,0 @@
-# sudo apt install -y python3-gi gir1.2-edataserver-1.2 gir1.2-ecal-2.0
