@@ -1,10 +1,4 @@
 #!/bin/bash
-
-# sudo ip addr add 192.168.15.201/24 dev usb0
-# sudo ip link set usb0 up
-# ssh root@192.168.15.244
-
-#!/usr/bin/env bash
 set -euo pipefail
 
 # --- connection details ---
@@ -37,6 +31,7 @@ sshpass -p "$PASSWORD" ssh \
   -o UserKnownHostsFile=/dev/null \
   "$USER@$HOST" > /dev/null
 
+scp -o ControlPath="$CTRL_PATH" "$USER@$HOST:$DEST_DIR/$FILENAME" "$FILENAME"
 scp -o ControlPath="$CTRL_PATH" "$REMOTE_SCRIPT" "$USER@$HOST:$DEST_DIR/"
 rsync -rv -e "ssh -S $CTRL_PATH -o ControlMaster=no -o StrictHostKeyChecking=no" ./kcal "$USER@$HOST:/mnt/us/kcal/"
 # shellcheck disable=SC2087
