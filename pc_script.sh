@@ -13,11 +13,12 @@ REMOTE_SCRIPT="kindle_script.sh"
 UPDATE_INTERVAL="10m"
 HASH=""
 TMP_DIR="$(mktemp -d)"
-CTRL_PATH="$TMP_DIR/cm-%r@%h:%p"
+CTRL_PATH="$TMP_DIR/kindle_socket"
+SSH_OPTIONS="-o StrictHostKeyChecking=no -o ControlPath=$CTRL_PATH -o ControlMaster=no -o UserKnownHostsFile=/dev/null"
 
 cleanup() {
   echo "Cleaning up..."
-  sshpass -p "$PASSWORD" ssh -o ControlPath="$CTRL_PATH" -O exit "$USER@$HOST" >/dev/null 2>&1 || true
+  sshpass -p "$PASSWORD" ssh $SSH_OPTIONS -O exit "$USER@$HOST" >/dev/null 2>&1 || true
   rm -rf "$TMP_DIR"
 }
 trap cleanup EXIT
@@ -31,18 +32,18 @@ sshpass -p "$PASSWORD" ssh \
   -o UserKnownHostsFile=/dev/null \
   "$USER@$HOST" > /dev/null
 
-scp -o ControlPath="$CTRL_PATH" "$USER@$HOST:$DEST_DIR/$FILENAME" "$FILENAME"
-scp -o ControlPath="$CTRL_PATH" "$REMOTE_SCRIPT" "$USER@$HOST:$DEST_DIR/"
-rsync -rv -e "ssh -S $CTRL_PATH -o ControlMaster=no -o StrictHostKeyChecking=no" ./kcal "$USER@$HOST:/mnt/us/kcal/"
+scp $SSH_OPTIONS "$USER@$HOST:$DEST_DIR/$FILENAME" "$FILENAME"
+scp $SSH_OPTIONS "$REMOTE_SCRIPT" "$USER@$HOST:$DEST_DIR/"
+rsync -r -e "ssh $SSH_OPTIONS" ./kcal "$USER@$HOST:/mnt/us/kcal/"
 # shellcheck disable=SC2087
-ssh -o StrictHostKeyChecking=no -o ControlPath="$CTRL_PATH" "$USER@$HOST" 'bash -s' <<EOF
+ssh $SSH_OPTIONS "$USER@$HOST" 'bash -s' <<EOF
 if pgrep -f "$REMOTE_SCRIPT" > /dev/null; then
     pkill -f "$REMOTE_SCRIPT"
 fi
 cd "$DEST_DIR"
 nohup bash "$REMOTE_SCRIPT" >> "render.log" 2>&1 &
 EOF
-ssh -o StrictHostKeyChecking=no -o ControlPath="$CTRL_PATH" "$USER@$HOST" "date -u -s @$(date -u +%s)"
+ssh $SSH_OPTIONS "$USER@$HOST" "date -u -s @$(date -u +%s)"
 
 while true; do
   python -m kcal calendar
@@ -50,7 +51,7 @@ while true; do
   if [[ "$NEW_HASH" != "$HASH" ]]; then
     HASH="$NEW_HASH"
     echo Copying to kindle...
-    scp -o ControlPath="$CTRL_PATH" "$FILENAME" "$USER@$HOST:$DEST_DIR/"
+    scp $SSH_OPTIONS "$FILENAME" "$USER@$HOST:$DEST_DIR/"
   fi
 
   sleep "$UPDATE_INTERVAL"
